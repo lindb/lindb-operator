@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert --controller deployment --volumes hostPath
+    kompose.version: 1.28.0 (c4137012e)
+  labels:
+    io.kompose.service: broker1
+  name: broker1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: broker1
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert --controller deployment --volumes hostPath
+        kompose.version: 1.28.0 (c4137012e)
+      creationTimestamp: null
+      labels:
+        io.kompose.network/docker-default: "true"
+        io.kompose.service: broker1
+    spec:
+      containers:
+        - args:
+            - /usr/bin/lind
+            - broker
+            - run
+            - --config
+            - /configs/broker1.toml
+          image: wangguohao/lindb:v0.2.1
+          imagePullPolicy: Always
+          name: lindb-broker1
+          ports:
+            - containerPort: 9000
+          volumeMounts:
+            - name: config-volume
+              mountPath: /configs
+      volumes:
+        - name: config-volume
+          configMap:
+            name: lindb-config
+      restartPolicy: Always
+status: {}

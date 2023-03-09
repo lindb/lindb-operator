@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: etcd
+  name: etcd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: etcd
+  template:
+    metadata:
+      labels:
+        io.kompose.network/docker-default: "true"
+        io.kompose.service: etcd
+    spec:
+      containers:
+        - env:
+            - name: ALLOW_NONE_AUTHENTICATION
+              value: "yes"
+            - name: ETCDCTL_API
+              value: "3"
+            - name: ETCD_ADVERTISE_CLIENT_URLS
+              value: http://etcd:2379
+            - name: ETCD_DATA_DIR
+              value: /tmp/etcd-data
+            - name: ETCD_DEBUG
+              value: "1"
+            - name: ETCD_INITIAL_ADVERTISE_PEER_URLS
+              value: http://etcd:2380
+            - name: ETCD_INITIAL_CLUSTER
+              value: etcd=http://etcd:2380
+            - name: ETCD_INITIAL_CLUSTER_STATE
+              value: new
+            - name: ETCD_INITIAL_CLUSTER_TOKEN
+              value: my-etcd-token
+            - name: ETCD_LISTEN_CLIENT_URLS
+              value: http://0.0.0.0:2379
+            - name: ETCD_LISTEN_PEER_URLS
+              value: http://0.0.0.0:2380
+            - name: ETCD_NAME
+              value: etcd
+          image: bitnami/etcd
+          name: lindb-etcd
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: etcd
+  name: etcd
+spec:
+  clusterIP: None
+  ports:
+    - name: "2379"
+      port: 2379
+      targetPort: 2379
+  selector:
+    io.kompose.service: etcd

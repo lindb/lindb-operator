@@ -1,0 +1,182 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.11.1
+  creationTimestamp: null
+  name: clusters.lindb.lindb.io
+spec:
+  group: lindb.lindb.io
+  names:
+    kind: Cluster
+    listKind: ClusterList
+    plural: clusters
+    singular: cluster
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Cluster is the Schema for the clusters API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClusterSpec defines the desired state of Cluster
+            properties:
+              brokers:
+                description: broker is the broker configuration
+                properties:
+                  grpcPort:
+                    description: 'the port of broker grpc server default: 9001'
+                    format: int32
+                    type: integer
+                  httpPort:
+                    description: 'the port of broker http server default: 9000'
+                    format: int32
+                    type: integer
+                  image:
+                    description: the image of broker, if not set, use the default
+                      image of ClusterSpec
+                    type: string
+                  logging:
+                    description: 'the logging configuration default: dir: /lindb/broker1,
+                      level: debug'
+                    properties:
+                      dir:
+                        description: 'the directory of log default: /lindb/broker1'
+                        type: string
+                      level:
+                        description: 'the level of log default: debug'
+                        type: string
+                    type: object
+                  monitor:
+                    description: 'the monitor configuration default: report-interval:
+                      10s, url: http://broker1:9000/api/v1/write?db=_internal'
+                    properties:
+                      reportInterval:
+                        description: 'the interval of monitor report default: 10s'
+                        type: string
+                      url:
+                        description: 'the url of monitor report default: http://broker1:9000/api/v1/write?db=_internal'
+                        type: string
+                    type: object
+                  replicas:
+                    description: 'replicas is the desired number of replicas of the
+                      given Template. These are replicas in the sense that they are
+                      instantiations of the same Template, but individual replicas
+                      also have a consistent identity. If unspecified, defaults to
+                      1. default: 1'
+                    format: int32
+                    type: integer
+                type: object
+              etcdEndpoints:
+                description: 'EtcdEndpoints is the etcd endpoints default: ["http://etcd:2379"]'
+                items:
+                  type: string
+                type: array
+              etcdNamespace:
+                default: /lindb-cluster
+                description: EtcdEndpoints is the etcd endpoints
+                type: string
+              image:
+                description: image is the image of the lindb cluster
+                type: string
+              paused:
+                description: 'Paused can be used to prevent controllers from processing
+                  the Cluster and all its associated objects. default: false'
+                type: boolean
+              storages:
+                description: storage is the storage configuration
+                properties:
+                  grpcPort:
+                    description: 'the port of storage grpc server default: 2891'
+                    format: int32
+                    type: integer
+                  httpPort:
+                    description: 'the port of storage http server default: 2892'
+                    format: int32
+                    type: integer
+                  image:
+                    description: the image of storage, if not set, use the default
+                      image of ClusterSpec
+                    type: string
+                  logging:
+                    description: 'the logging configuration default: dir: /lindb/storage1,
+                      level: debug'
+                    properties:
+                      dir:
+                        description: 'the directory of log default: /lindb/broker1'
+                        type: string
+                      level:
+                        description: 'the level of log default: debug'
+                        type: string
+                    type: object
+                  monitor:
+                    description: 'the monitor configuration default: report-interval:
+                      10s, url: http://broker1:9000/api/v1/write?db=_internal'
+                    properties:
+                      reportInterval:
+                        description: 'the interval of monitor report default: 10s'
+                        type: string
+                      url:
+                        description: 'the url of monitor report default: http://broker1:9000/api/v1/write?db=_internal'
+                        type: string
+                    type: object
+                  replicas:
+                    description: 'replicas is the desired number of replicas of the
+                      given Template. These are replicas in the sense that they are
+                      instantiations of the same Template, but individual replicas
+                      also have a consistent identity. If unspecified, defaults to
+                      1. default: 1'
+                    format: int32
+                    type: integer
+                  tsdbDir:
+                    description: 'the directory of tsdb default: /lindb/storage1/data'
+                    type: string
+                  walDir:
+                    description: 'the directory of wal default: /lindb/storage1/wal'
+                    type: string
+                type: object
+            type: object
+          status:
+            description: ClusterStatus defines the observed state of Cluster
+            properties:
+              brokerStatuses:
+                description: the status of brokers
+                properties:
+                  status:
+                    description: the status of broker
+                    type: string
+                type: object
+              clusterStatus:
+                description: the status of cluster
+                type: string
+              storageStatuses:
+                description: the status of storages
+                properties:
+                  myid:
+                    description: the indicator of storage
+                    format: int32
+                    type: integer
+                  status:
+                    description: the status of storage
+                    type: string
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
