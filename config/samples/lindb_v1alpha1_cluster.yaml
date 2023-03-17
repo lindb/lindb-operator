@@ -2,11 +2,7 @@ apiVersion: lindb.lindb.io/v1alpha1
 kind: Cluster
 metadata:
   labels:
-    app.kubernetes.io/name: cluster
-    app.kubernetes.io/instance: cluster-sample
-    app.kubernetes.io/part-of: lindb-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: lindb-operator
+    lindb.lindb.io/tenant: lindb-user1
   name: cluster-sample
 spec:
   paused: false
@@ -14,25 +10,24 @@ spec:
   etcdEndpoints:
     - http://etcd:2379
   image: wangguohao/lindb:v0.2.1
+  cloud:
+    type: aws
+    storage:
+      type: shared
+      storageClass: gp2
+      storageSize: 10Gi
+      mountPath: /data
   brokers:
     replicas: 1
     httpPort: 9000
     grpcPort: 9001
     monitor:
       reportInterval: 10s
-      url: http://broker1:9000/api/v1/write?db=_internal
-    logging:
-      dir: /lindb/broker1
-      level: debug
+      url: http://localhost:9000/api/v1/write?db=_internal
   storages:
     replicas: 1
     grpcPort: 2891
     httpPort: 2892
-    walDir: /lindb/storage1/wal
-    tsdbDir: /lindb/storage1/data
     monitor:
       reportInterval: 10s
       url: http://broker1:9000/api/v1/write?db=_internal
-    logging:
-      dir: /lindb/storage1
-      level: debug

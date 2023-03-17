@@ -47,17 +47,6 @@ spec:
                 description: the image of storage, if not set, use the default image
                   of ClusterSpec
                 type: string
-              logging:
-                description: 'the logging configuration default: dir: /lindb/storage1,
-                  level: debug'
-                properties:
-                  dir:
-                    description: 'the directory of log default: /lindb/broker1'
-                    type: string
-                  level:
-                    description: 'the level of log default: debug'
-                    type: string
-                type: object
               monitor:
                 description: 'the monitor configuration default: report-interval:
                   10s, url: http://broker1:9000/api/v1/write?db=_internal'
@@ -70,18 +59,9 @@ spec:
                     type: string
                 type: object
               replicas:
-                description: 'replicas is the desired number of replicas of the given
-                  Template. These are replicas in the sense that they are instantiations
-                  of the same Template, but individual replicas also have a consistent
-                  identity. If unspecified, defaults to 1. default: 1'
+                description: 'default: 1'
                 format: int32
                 type: integer
-              tsdbDir:
-                description: 'the directory of tsdb default: /lindb/storage1/data'
-                type: string
-              walDir:
-                description: 'the directory of wal default: /lindb/storage1/wal'
-                type: string
             type: object
           status:
             description: StorageStatus defines the observed state of Storage

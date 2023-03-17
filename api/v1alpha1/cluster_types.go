@@ -22,6 +22,11 @@ import (
 
 // ClusterSpec defines the desired state of Cluster
 type ClusterSpec struct {
+	// Paused can be used to prevent controllers from processing the Cluster and all its associated objects.
+	// +kubebuilder:validation:Optional
+	// default: false
+	Paused bool `json:"paused,omitempty"`
+
 	// EtcdEndpoints is the etcd endpoints
 	// +kubebuilder:validation:Required
 	// +kubebuilder:default:="/lindb-cluster"
@@ -32,10 +37,9 @@ type ClusterSpec struct {
 	// default: ["http://etcd:2379"]
 	EtcdEndpoints []string `json:"etcdEndpoints,omitempty"`
 
-	// Paused can be used to prevent controllers from processing the Cluster and all its associated objects.
-	// +kubebuilder:validation:Optional
-	// default: false
-	Paused bool `json:"paused,omitempty"`
+	// Cloud is the cloud configuration
+	// +kubebuilder:validation:Required
+	Cloud CloudSpec `json:"cloud,omitempty"`
 
 	// image is the image of the lindb cluster
 	// +kubebuilder:validation:Required
@@ -47,6 +51,41 @@ type ClusterSpec struct {
 
 	// storage is the storage configuration
 	Storages StorageSpec `json:"storages,omitempty"`
+}
+
+type CloudSpec struct {
+	// type is the type of the cloud
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default:="aws"
+	// +kubebuilder:validation:Enum={"aws"}
+	Type string `json:"type,omitempty"`
+
+	// storage is the storage configuration
+	// +kubebuilder:validation:Required
+	Storage CloudStorageSpec `json:"storage,omitempty"`
+}
+
+type CloudStorageSpec struct {
+	// type is the type of the cloud storage
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default:="shared"
+	// +kubebuilder:validation:Enum={"shared"}
+	Type string `json:"type,omitempty"`
+
+	// storageClass is the storage class of the cloud storage
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default:="gp2"
+	StorageClass string `json:"storageClass,omitempty"`
+
+	// storageSize is the storage size of the cloud storage
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default:="10Gi"
+	StorageSize string `json:"storageSize,omitempty"`
+
+	// mountPath is the mount path of the cloud storage
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default:="/data"
+	MountPath string `json:"mountPath,omitempty"`
 }
 
 // ClusterStatus defines the observed state of Cluster

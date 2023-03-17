@@ -48,11 +48,6 @@ type BrokerSpec struct {
 	// +optional
 	// default: report-interval: 10s, url: http://broker1:9000/api/v1/write?db=_internal
 	Monitor MonitorSpec `json:"monitor,omitempty"`
-
-	// the logging configuration
-	// +optional
-	// default: dir: /lindb/broker1, level: debug
-	Logging LoggingSpec `json:"logging,omitempty"`
 }
 
 type LoggingSpec struct {

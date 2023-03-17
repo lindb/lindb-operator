@@ -50,17 +50,6 @@ spec:
                     description: the image of broker, if not set, use the default
                       image of ClusterSpec
                     type: string
-                  logging:
-                    description: 'the logging configuration default: dir: /lindb/broker1,
-                      level: debug'
-                    properties:
-                      dir:
-                        description: 'the directory of log default: /lindb/broker1'
-                        type: string
-                      level:
-                        description: 'the level of log default: debug'
-                        type: string
-                    type: object
                   monitor:
                     description: 'the monitor configuration default: report-interval:
                       10s, url: http://broker1:9000/api/v1/write?db=_internal'
@@ -80,6 +69,40 @@ spec:
                       1. default: 1'
                     format: int32
                     type: integer
+                type: object
+              cloud:
+                description: Cloud is the cloud configuration
+                properties:
+                  storage:
+                    description: storage is the storage configuration
+                    properties:
+                      mountPath:
+                        default: /data
+                        description: mountPath is the mount path of the cloud storage
+                        type: string
+                      storageClass:
+                        default: gp2
+                        description: storageClass is the storage class of the cloud
+                          storage
+                        type: string
+                      storageSize:
+                        default: 10Gi
+                        description: storageSize is the storage size of the cloud
+                          storage
+                        type: string
+                      type:
+                        default: shared
+                        description: type is the type of the cloud storage
+                        enum:
+                        - shared
+                        type: string
+                    type: object
+                  type:
+                    default: aws
+                    description: type is the type of the cloud
+                    enum:
+                    - aws
+                    type: string
                 type: object
               etcdEndpoints:
                 description: 'EtcdEndpoints is the etcd endpoints default: ["http://etcd:2379"]'
@@ -112,17 +135,6 @@ spec:
                     description: the image of storage, if not set, use the default
                       image of ClusterSpec
                     type: string
-                  logging:
-                    description: 'the logging configuration default: dir: /lindb/storage1,
-                      level: debug'
-                    properties:
-                      dir:
-                        description: 'the directory of log default: /lindb/broker1'
-                        type: string
-                      level:
-                        description: 'the level of log default: debug'
-                        type: string
-                    type: object
                   monitor:
                     description: 'the monitor configuration default: report-interval:
                       10s, url: http://broker1:9000/api/v1/write?db=_internal'
@@ -135,19 +147,9 @@ spec:
                         type: string
                     type: object
                   replicas:
-                    description: 'replicas is the desired number of replicas of the
-                      given Template. These are replicas in the sense that they are
-                      instantiations of the same Template, but individual replicas
-                      also have a consistent identity. If unspecified, defaults to
-                      1. default: 1'
+                    description: 'default: 1'
                     format: int32
                     type: integer
-                  tsdbDir:
-                    description: 'the directory of tsdb default: /lindb/storage1/data'
-                    type: string
-                  walDir:
-                    description: 'the directory of wal default: /lindb/storage1/wal'
-                    type: string
                 type: object
             type: object
           status:

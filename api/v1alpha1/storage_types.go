@@ -22,13 +22,10 @@ import (
 
 // StorageSpec defines the desired state of Storage
 type StorageSpec struct {
-	// replicas is the desired number of replicas of the given Template.
-	// These are replicas in the sense that they are instantiations of the
-	// same Template, but individual replicas also have a consistent identity.
-	// If unspecified, defaults to 1.
-	// +optional
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:type=integer
 	// default: 1
-	Replicas *int32 `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
+	Replicas *int32 `json:"replicas,omitempty"`
 
 	// the image of storage, if not set, use the default image of ClusterSpec
 	// +optional
@@ -44,25 +41,10 @@ type StorageSpec struct {
 	// default: 2892
 	HttpPort int32 `json:"httpPort,omitempty"`
 
-	// the directory of wal
-	// +required
-	// default: /lindb/storage1/wal
-	WALDir string `json:"walDir,omitempty"`
-
-	// the directory of tsdb
-	// +required
-	// default: /lindb/storage1/data
-	TSDBDir string `json:"tsdbDir,omitempty"`
-
 	// the monitor configuration
 	// +optional
 	// default: report-interval: 10s, url: http://broker1:9000/api/v1/write?db=_internal
 	Monitor MonitorSpec `json:"monitor,omitempty"`
-
-	// the logging configuration
-	// +optional
-	// default: dir: /lindb/storage1, level: debug
-	Logging LoggingSpec `json:"logging,omitempty"`
 }
 
 // StorageStatus defines the observed state of Storage
