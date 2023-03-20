@@ -15,7 +15,20 @@ spec:
     singular: cluster
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.image
+      name: Image
+      type: string
+    - jsonPath: .spec.cloud.type
+      name: Cloud
+      type: string
+    - jsonPath: .spec.brokers.replicas
+      name: Brokers
+      type: integer
+    - jsonPath: .spec.storages.replicas
+      name: Storages
+      type: integer
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Cluster is the Schema for the clusters API
@@ -33,7 +46,6 @@ spec:
           metadata:
             type: object
           spec:
-            description: ClusterSpec defines the desired state of Cluster
             properties:
               brokers:
                 description: broker is the broker configuration

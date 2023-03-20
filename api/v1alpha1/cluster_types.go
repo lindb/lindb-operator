@@ -21,6 +21,7 @@ import (
 )
 
 // ClusterSpec defines the desired state of Cluster
+
 type ClusterSpec struct {
 	// Paused can be used to prevent controllers from processing the Cluster and all its associated objects.
 	// +kubebuilder:validation:Optional
@@ -92,7 +93,6 @@ type CloudStorageSpec struct {
 type ClusterStatus struct {
 	// the status of cluster
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:printcolumn:JSONPath=".status.clusterStatus",name=clusterStatus,type=string
 	ClusterStatus string `json:"clusterStatus,omitempty"`
 
 	// the status of brokers
@@ -106,6 +106,11 @@ type ClusterStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+
+// +kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
+// +kubebuilder:printcolumn:name="Cloud",type=string,JSONPath=`.spec.cloud.type`
+// +kubebuilder:printcolumn:name="Brokers",type=integer,JSONPath=`.spec.brokers.replicas`
+// +kubebuilder:printcolumn:name="Storages",type=integer,JSONPath=`.spec.storages.replicas`
 
 // Cluster is the Schema for the clusters API
 type Cluster struct {
