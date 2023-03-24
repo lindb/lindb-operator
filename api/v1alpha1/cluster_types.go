@@ -104,9 +104,8 @@ type ClusterStatus struct {
 	StorageStatuses StorageStatus `json:"storageStatuses,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
 // +kubebuilder:printcolumn:name="Cloud",type=string,JSONPath=`.spec.cloud.type`
 // +kubebuilder:printcolumn:name="Brokers",type=integer,JSONPath=`.spec.brokers.replicas`

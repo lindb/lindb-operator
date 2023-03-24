@@ -30,4 +30,4 @@ spec:
     httpPort: 2892
     monitor:
       reportInterval: 10s
-      url: http://broker1:9000/api/v1/write?db=_internal
+      url: http://localhost:9000/api/v1/write?db=_internal

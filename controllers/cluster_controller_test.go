@@ -17,15 +17,13 @@ limitations under the License.
 package controllers
 
 import (
-	"strings"
+	"net/url"
 	"testing"
 )
 
-func TestConfigGenerate(t *testing.T) {
-
-	var etcdHostList = []string{
-		"http://etcd1:2379",
-	}
-
-	t.Logf("[%s]", strings.Join(etcdHostList, ","))
+func TestGenerateCrateStorageURL(t *testing.T) {
+	var value = `create storage {\"config\":{\"namespace\":\"/lindb-storage\",\"timeout\":10,\"dialTimeout\":10,\"leaseTTL\":10,\"endpoints\":[\"http://etcd:2379\"]}}`
+	aa := url.Values{}
+	aa.Add("sql", url.QueryEscape(value))
+	t.Logf("%s", aa.Encode())
 }

@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -170,6 +172,10 @@ func (r *ClusterReconciler) reconcileBroker(ctx context.Context, cluster *alpha1
 		image = cluster.Spec.Image
 	}
 
+	var label = map[string]string{
+		"app-name": "lindb-broker",
+	}
+
 	deploy := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cluster.Name + "-broker",
@@ -178,13 +184,13 @@ func (r *ClusterReconciler) reconcileBroker(ctx context.Context, cluster *alpha1
 		Spec: appsv1.DeploymentSpec{
 			Replicas: cluster.Spec.Brokers.Replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: setResourceClusterLabels(nil, cluster),
+				MatchLabels: setResourceClusterLabels(label, cluster),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cluster.Name + "-broker",
 					Namespace: cluster.Namespace,
-					Labels:    setResourceClusterLabels(nil, cluster),
+					Labels:    setResourceClusterLabels(label, cluster),
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -200,6 +206,7 @@ func (r *ClusterReconciler) reconcileBroker(ctx context.Context, cluster *alpha1
 								"--config=/etc/lindb/empty.toml",
 							},
 							ImagePullPolicy: corev1.PullAlways,
+							TTY:             true,
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: cluster.Spec.Brokers.HttpPort,
@@ -210,16 +217,16 @@ func (r *ClusterReconciler) reconcileBroker(ctx context.Context, cluster *alpha1
 							},
 						},
 					},
+					DNSPolicy: corev1.DNSClusterFirst,
 				},
 			},
 		},
 	}
 
-	injectEnv2PodTemplate(&deploy.Spec.Template, cluster)
-	injectVolume2PodTemplate(&deploy.Spec.Template, cluster)
+	injectEnv2PodTemplate(ctx, &deploy.Spec.Template, cluster)
+	injectVolume2PodTemplate(ctx, &deploy.Spec.Template, cluster)
 
-	err := r.Create(ctx, &deploy)
-	if err != nil {
+	if err := r.Create(ctx, &deploy); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return r.Update(ctx, &deploy)
 		}
@@ -227,6 +234,32 @@ func (r *ClusterReconciler) reconcileBroker(ctx context.Context, cluster *alpha1
 	}
 
 	logger.Info("Reconciling deployment successfully", "deployment", deploy.Namespace+"/"+deploy.Name)
+
+	// use headless service to expose broker
+	var svc = corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cluster.Name + "-svc",
+			Namespace: cluster.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None",
+			Selector:  setResourceClusterLabels(label, cluster),
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       cluster.Spec.Brokers.HttpPort,
+					TargetPort: intstr.FromInt(int(cluster.Spec.Brokers.HttpPort)),
+				},
+			},
+		},
+	}
+
+	if err := r.Create(ctx, &svc); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return r.Update(ctx, &svc)
+		}
+		logger.Error(err, "Create service failed", "service", svc.Namespace+"/"+svc.Name)
+	}
 
 	return nil
 }
@@ -243,23 +276,27 @@ func (r *ClusterReconciler) reconcileStorage(ctx context.Context, cluster *alpha
 		image = cluster.Spec.Image
 	}
 
+	var label = map[string]string{
+		"app-name": "lindb-storage",
+	}
+
 	var sts = appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cluster.Name + "-storage",
 			Namespace: cluster.Namespace,
-			Labels:    setResourceClusterLabels(nil, cluster),
+			Labels:    setResourceClusterLabels(label, cluster),
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas:            cluster.Spec.Storages.Replicas,
 			PodManagementPolicy: appsv1.OrderedReadyPodManagement,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: setResourceClusterLabels(nil, cluster),
+				MatchLabels: setResourceClusterLabels(label, cluster),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cluster.Name + "-storage",
 					Namespace: cluster.Namespace,
-					Labels:    setResourceClusterLabels(nil, cluster),
+					Labels:    setResourceClusterLabels(label, cluster),
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -275,6 +312,7 @@ func (r *ClusterReconciler) reconcileStorage(ctx context.Context, cluster *alpha
 								"--config=/etc/lindb/empty.toml",
 							},
 							ImagePullPolicy: corev1.PullAlways,
+							TTY:             true,
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: cluster.Spec.Storages.HttpPort,
@@ -285,13 +323,16 @@ func (r *ClusterReconciler) reconcileStorage(ctx context.Context, cluster *alpha
 							},
 						},
 					},
+					DNSPolicy: corev1.DNSClusterFirst,
 				},
 			},
 		},
 	}
 
-	injectEnv2PodTemplate(&sts.Spec.Template, cluster)
-	injectVolume2PodTemplate(&sts.Spec.Template, cluster)
+	injectEnv2PodTemplate(ctx, &sts.Spec.Template, cluster)
+	injectVolume2PodTemplate(ctx, &sts.Spec.Template, cluster)
+	injectCreateStorage(ctx, &sts.Spec.Template, cluster)
+	injectCreateInternalDatabase(ctx, &sts.Spec.Template, cluster)
 
 	err := r.Create(ctx, &sts)
 	if err != nil {
@@ -400,7 +441,7 @@ func (r *ClusterReconciler) reconcileDeleteStorage(ctx context.Context, cluster 
 	return nil
 }
 
-func injectEnv2PodTemplate(temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster) {
+func injectEnv2PodTemplate(ctx context.Context, temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster) {
 	temp.Spec.Containers[0].Env = []corev1.EnvVar{
 		{
 			Name: "POD_NAME",
@@ -473,7 +514,55 @@ func injectEnv2PodTemplate(temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster
 	}
 }
 
-func injectVolume2PodTemplate(temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster) {
+func injectCreateStorage(ctx context.Context, temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster) {
+	log := log.FromContext(ctx, "phase", "injectCreateStorage")
+
+	log.V(4).Info("Inject StartupProbe", "cluster", cluster.Namespace+"/"+cluster.Name)
+
+	params := url.Values{}
+	params.Set("sql", `create storage {\"config\":{\"namespace\":\"/lindb-storage\",\"timeout\":10,\"dialTimeout\":10,\"leaseTTL\":10,\"endpoints\":[\"http://etcd:2379\"]}}`)
+	var path = "api/v1/exec?"
+	path += params.Encode()
+
+	temp.Spec.Containers[0].StartupProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host: cluster.Name + "-svc",
+				Path: path,
+				Port: intstr.FromInt(int(cluster.Spec.Brokers.HttpPort)),
+			},
+		},
+		InitialDelaySeconds: 5,
+		TimeoutSeconds:      10,
+		PeriodSeconds:       10,
+	}
+}
+
+func injectCreateInternalDatabase(ctx context.Context, temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster) {
+	log := log.FromContext(ctx, "phase", "injectCreateInternalDatabase")
+
+	log.V(4).Info("Inject post start", "cluster", cluster.Namespace+"/"+cluster.Name)
+
+	params := url.Values{}
+	params.Set("sql", `create database {\"option\":{\"intervals\":[{\"interval\":\"10s\",\"retention\":\"30d\"},{\"interval\":\"5m\",\"retention\":\"3M\"},{\"interval\":\"1h\",\"retention\":\"2y\"}],\"autoCreateNS\":true,\"behead\":\"1h\",\"ahead\":\"1h\"},\"name\":\"_internal\",\"storage\":\"/lindb-storage\",\"numOfShard\":3,\"replicaFactor\":2}`)
+	var path = "api/v1/exec?"
+	path += params.Encode()
+
+	temp.Spec.Containers[0].StartupProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host: cluster.Name + "-svc",
+				Path: path,
+				Port: intstr.FromInt(int(cluster.Spec.Brokers.HttpPort)),
+			},
+		},
+		InitialDelaySeconds: 5,
+		TimeoutSeconds:      10,
+		PeriodSeconds:       10,
+	}
+}
+
+func injectVolume2PodTemplate(ctx context.Context, temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster) {
 	temp.Spec.Volumes = []corev1.Volume{
 		{
 			Name: "config",
@@ -508,15 +597,21 @@ func injectVolume2PodTemplate(temp *corev1.PodTemplateSpec, cluster *alpha1.Clus
 }
 
 func setResourceClusterLabels(labels map[string]string, cluster *alpha1.Cluster) map[string]string {
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-	for k, v := range cluster.Labels {
-		labels[k] = v
-	}
-	labels["lindb.lindb.io/cluster"] = cluster.Name
+	var ret = make(map[string]string)
 
-	return labels
+	if labels != nil {
+		for k, v := range labels {
+			ret[k] = v
+		}
+	}
+
+	for k, v := range cluster.Labels {
+		ret[k] = v
+	}
+
+	ret["lindb.lindb.io/cluster"] = cluster.Name
+
+	return ret
 }
 
 // SetupWithManager sets up the controller with the Manager.
