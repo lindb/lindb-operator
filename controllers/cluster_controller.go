@@ -631,8 +631,6 @@ func injectCreateInternalDatabase(ctx context.Context, temp *corev1.PodTemplateS
 		ReplicaFactor int    `json:"replicaFactor"`
 	}
 
-	// {\"option\":{\"intervals\":[{\"interval\":\"10s\",\"retention\":\"30d\"},{\"interval\":\"5m\",\"retention\":\"3M\"},{\"interval\":\"1h\",\"retention\":\"2y\"}],\"autoCreateNS\":true,\"behead\":\"1h\",\"ahead\":\"1h\"},\"name\":\"_internal\",\"storage\":\"/lindb-storage\",\"numOfShard\":3,\"replicaFactor\":2}
-
 	createDatabaseConfig := createDatabase{}
 	createDatabaseConfig.Option = Option{}
 	createDatabaseConfig.Option.Intervals = []Intervals{
