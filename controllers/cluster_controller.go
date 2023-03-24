@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -322,8 +323,16 @@ func (r *ClusterReconciler) reconcileStorage(ctx context.Context, cluster *alpha
 								},
 							},
 						},
+						{
+							Name:  "helper",
+							Image: image,
+							Command: []string{
+								"top",
+							},
+							ImagePullPolicy: corev1.PullAlways,
+							TTY:             true,
+						},
 					},
-					DNSPolicy: corev1.DNSClusterFirst,
 				},
 			},
 		},
@@ -334,8 +343,7 @@ func (r *ClusterReconciler) reconcileStorage(ctx context.Context, cluster *alpha
 	injectCreateStorage(ctx, &sts.Spec.Template, cluster)
 	injectCreateInternalDatabase(ctx, &sts.Spec.Template, cluster)
 
-	err := r.Create(ctx, &sts)
-	if err != nil {
+	if err := r.Create(ctx, &sts); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			return r.Update(ctx, &sts)
 		}
@@ -514,54 +522,6 @@ func injectEnv2PodTemplate(ctx context.Context, temp *corev1.PodTemplateSpec, cl
 	}
 }
 
-func injectCreateStorage(ctx context.Context, temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster) {
-	log := log.FromContext(ctx, "phase", "injectCreateStorage")
-
-	log.V(4).Info("Inject StartupProbe", "cluster", cluster.Namespace+"/"+cluster.Name)
-
-	params := url.Values{}
-	params.Set("sql", `create storage {\"config\":{\"namespace\":\"/lindb-storage\",\"timeout\":10,\"dialTimeout\":10,\"leaseTTL\":10,\"endpoints\":[\"http://etcd:2379\"]}}`)
-	var path = "api/v1/exec?"
-	path += params.Encode()
-
-	temp.Spec.Containers[0].StartupProbe = &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Host: cluster.Name + "-svc",
-				Path: path,
-				Port: intstr.FromInt(int(cluster.Spec.Brokers.HttpPort)),
-			},
-		},
-		InitialDelaySeconds: 5,
-		TimeoutSeconds:      10,
-		PeriodSeconds:       10,
-	}
-}
-
-func injectCreateInternalDatabase(ctx context.Context, temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster) {
-	log := log.FromContext(ctx, "phase", "injectCreateInternalDatabase")
-
-	log.V(4).Info("Inject post start", "cluster", cluster.Namespace+"/"+cluster.Name)
-
-	params := url.Values{}
-	params.Set("sql", `create database {\"option\":{\"intervals\":[{\"interval\":\"10s\",\"retention\":\"30d\"},{\"interval\":\"5m\",\"retention\":\"3M\"},{\"interval\":\"1h\",\"retention\":\"2y\"}],\"autoCreateNS\":true,\"behead\":\"1h\",\"ahead\":\"1h\"},\"name\":\"_internal\",\"storage\":\"/lindb-storage\",\"numOfShard\":3,\"replicaFactor\":2}`)
-	var path = "api/v1/exec?"
-	path += params.Encode()
-
-	temp.Spec.Containers[0].StartupProbe = &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Host: cluster.Name + "-svc",
-				Path: path,
-				Port: intstr.FromInt(int(cluster.Spec.Brokers.HttpPort)),
-			},
-		},
-		InitialDelaySeconds: 5,
-		TimeoutSeconds:      10,
-		PeriodSeconds:       10,
-	}
-}
-
 func injectVolume2PodTemplate(ctx context.Context, temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster) {
 	temp.Spec.Volumes = []corev1.Volume{
 		{
@@ -596,13 +556,141 @@ func injectVolume2PodTemplate(ctx context.Context, temp *corev1.PodTemplateSpec,
 	}
 }
 
+func injectCreateStorage(ctx context.Context, temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster) {
+	log := log.FromContext(ctx, "phase", "injectCreateStorage")
+
+	log.V(4).Info("Inject StartupProbe", "cluster", cluster.Namespace+"/"+cluster.Name)
+
+	type createStorage struct {
+		Config struct {
+			Namespace   string   `json:"namespace"`
+			Timeout     int      `json:"timeout"`
+			DialTimeout int      `json:"dialTimeout"`
+			LeaseTTL    int      `json:"leaseTTL"`
+			Endpoints   []string `json:"endpoints"`
+		} `json:"config"`
+	}
+
+	createStorageConfig := createStorage{}
+	createStorageConfig.Config.Namespace = cluster.Spec.EtcdNamespace
+	createStorageConfig.Config.Timeout = 10
+	createStorageConfig.Config.DialTimeout = 10
+	createStorageConfig.Config.LeaseTTL = 10
+	createStorageConfig.Config.Endpoints = cluster.Spec.EtcdEndpoints
+
+	output, err := json.Marshal(createStorageConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	createStorageSql := fmt.Sprintf(`create storage %s`, output)
+	log.V(4).Info("Inject StartupProbe", "value", createStorageSql)
+
+	params := url.Values{}
+	params.Set("sql", createStorageSql)
+
+	var path = "api/v1/exec?"
+	path += params.Encode()
+
+	temp.Spec.Containers[0].StartupProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host: cluster.Name + "-svc",
+				Path: path,
+				Port: intstr.FromInt(int(cluster.Spec.Brokers.HttpPort)),
+			},
+		},
+		InitialDelaySeconds: 5,
+		TimeoutSeconds:      10,
+		PeriodSeconds:       10,
+	}
+}
+
+func injectCreateInternalDatabase(ctx context.Context, temp *corev1.PodTemplateSpec, cluster *alpha1.Cluster) {
+	log := log.FromContext(ctx, "phase", "injectCreateInternalDatabase")
+
+	log.V(4).Info("Inject post start", "cluster", cluster.Namespace+"/"+cluster.Name)
+
+	type Intervals struct {
+		Interval  string `json:"interval"`
+		Retention string `json:"retention"`
+	}
+
+	type Option struct {
+		Intervals    []Intervals `json:"intervals"`
+		AutoCreateNS bool        `json:"autoCreateNS"`
+		Behead       string      `json:"behead"`
+		Ahead        string      `json:"ahead"`
+	}
+
+	type createDatabase struct {
+		Option        Option `json:"option"`
+		Name          string `json:"name"`
+		Storage       string `json:"storage"`
+		NumOfShard    int    `json:"numOfShard"`
+		ReplicaFactor int    `json:"replicaFactor"`
+	}
+
+	// {\"option\":{\"intervals\":[{\"interval\":\"10s\",\"retention\":\"30d\"},{\"interval\":\"5m\",\"retention\":\"3M\"},{\"interval\":\"1h\",\"retention\":\"2y\"}],\"autoCreateNS\":true,\"behead\":\"1h\",\"ahead\":\"1h\"},\"name\":\"_internal\",\"storage\":\"/lindb-storage\",\"numOfShard\":3,\"replicaFactor\":2}
+
+	createDatabaseConfig := createDatabase{}
+	createDatabaseConfig.Option = Option{}
+	createDatabaseConfig.Option.Intervals = []Intervals{
+		{
+			Interval:  "10s",
+			Retention: "30d",
+		},
+		{
+			Interval:  "5m",
+			Retention: "3M",
+		},
+		{
+			Interval:  "1h",
+			Retention: "2y",
+		},
+	}
+
+	createDatabaseConfig.Option.AutoCreateNS = true
+	createDatabaseConfig.Option.Behead = "1h"
+	createDatabaseConfig.Option.Ahead = "1h"
+	createDatabaseConfig.Name = "_internal"
+	createDatabaseConfig.Storage = "/lindb-storage"
+	createDatabaseConfig.NumOfShard = 3
+	createDatabaseConfig.ReplicaFactor = 2
+
+	output, err := json.Marshal(createDatabaseConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	createDatabaseSql := fmt.Sprintf(`create database %s`, output)
+	log.V(4).Info("Inject create database", "value", createDatabaseSql)
+
+	params := url.Values{}
+
+	params.Set("sql", createDatabaseSql)
+	var path = "api/v1/exec?"
+	path += params.Encode()
+
+	temp.Spec.Containers[1].StartupProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Host: cluster.Name + "-svc",
+				Path: path,
+				Port: intstr.FromInt(int(cluster.Spec.Brokers.HttpPort)),
+			},
+		},
+		InitialDelaySeconds: 5,
+		TimeoutSeconds:      10,
+		PeriodSeconds:       10,
+	}
+}
+
 func setResourceClusterLabels(labels map[string]string, cluster *alpha1.Cluster) map[string]string {
 	var ret = make(map[string]string)
 
-	if labels != nil {
-		for k, v := range labels {
-			ret[k] = v
-		}
+	for k, v := range labels {
+		ret[k] = v
 	}
 
 	for k, v := range cluster.Labels {
