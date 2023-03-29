@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -45,6 +46,10 @@ type StorageSpec struct {
 	// +optional
 	// default: report-interval: 10s, url: http://broker1:9000/api/v1/write?db=_internal
 	Monitor MonitorSpec `json:"monitor,omitempty"`
+
+	// the resource configuration
+	// +optional
+	Resource corev1.ResourceList `json:"resource,omitempty"`
 }
 
 // StorageStatus defines the observed state of Storage
