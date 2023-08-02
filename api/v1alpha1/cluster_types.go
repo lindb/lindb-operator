@@ -20,6 +20,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// +kubebuilder:validation:Type=string
+// +kubebuilder:validation:Enum={"Pending", "Running", "Failed"}
+// ClusterPhaseStatus is the status of the cluster
+
+type ClusterPhaseStatus string
+
+const (
+	ClusterPending ClusterPhaseStatus = "Pending"
+	ClusterRunning ClusterPhaseStatus = "Running"
+	ClusterFailed  ClusterPhaseStatus = "Failed"
+)
+
 // ClusterSpec defines the desired state of Cluster
 
 type ClusterSpec struct {
@@ -87,21 +99,20 @@ type CloudStorageSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:default:="/data"
 	MountPath string `json:"mountPath,omitempty"`
+
+	// recycling strategy
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default:="Delete"
+	// +kubebuilder:validation:Enum={"Delete", "Retain"}
+	RecyclingStrategy string `json:"recyclingStrategy,omitempty"`
 }
 
 // ClusterStatus defines the observed state of Cluster
 type ClusterStatus struct {
 	// the status of cluster
-	// +kubebuilder:validation:Optional
-	ClusterStatus string `json:"clusterStatus,omitempty"`
-
-	// the status of brokers
-	// +optional
-	BrokerStatuses BrokerStatus `json:"brokerStatuses,omitempty"`
-
-	// the status of storages
-	// +optional
-	StorageStatuses StorageStatus `json:"storageStatuses,omitempty"`
+	// +kubebuilder:default:="Pending"
+	// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phaseStatus`
+	PhaseStatus ClusterPhaseStatus `json:"phaseStatus,omitempty"`
 }
 
 // +kubebuilder:object:root=true

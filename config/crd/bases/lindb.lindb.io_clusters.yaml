@@ -81,6 +81,53 @@ spec:
                       1. default: 1'
                     format: int32
                     type: integer
+                  resources:
+                    description: Resources are not allowed for ephemeral containers.
+                      Ephemeral containers use spare resources already allocated to
+                      the pod.
+                    properties:
+                      claims:
+                        description: "Claims lists the names of resources, defined
+                          in spec.resourceClaims, that are used by this container.
+                          \n This is an alpha field and requires enabling the DynamicResourceAllocation
+                          feature gate. \n This field is immutable."
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: Name must match the name of one entry in
+                                pod.spec.resourceClaims of the Pod where this field
+                                is used. It makes that resource available inside a
+                                container.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: set
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Limits describes the maximum amount of compute
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Requests describes the minimum amount of compute
+                          resources required. If Requests is omitted for a container,
+                          it defaults to Limits if that is explicitly specified, otherwise
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                    type: object
                 type: object
               cloud:
                 description: Cloud is the cloud configuration
@@ -91,6 +138,13 @@ spec:
                       mountPath:
                         default: /data
                         description: mountPath is the mount path of the cloud storage
+                        type: string
+                      recyclingStrategy:
+                        default: Delete
+                        description: recycling strategy
+                        enum:
+                        - Delete
+                        - Retain
                         type: string
                       storageClass:
                         default: gp2
@@ -135,6 +189,17 @@ spec:
               storages:
                 description: storage is the storage configuration
                 properties:
+                  Resource:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: Resources are not allowed for ephemeral containers.
+                      Ephemeral containers use spare resources already allocated to
+                      the pod.
+                    type: object
                   grpcPort:
                     description: 'the port of storage grpc server default: 2891'
                     format: int32
@@ -167,27 +232,14 @@ spec:
           status:
             description: ClusterStatus defines the observed state of Cluster
             properties:
-              brokerStatuses:
-                description: the status of brokers
-                properties:
-                  status:
-                    description: the status of broker
-                    type: string
-                type: object
-              clusterStatus:
+              phaseStatus:
+                default: Pending
                 description: the status of cluster
+                enum:
+                - Pending
+                - Running
+                - Failed
                 type: string
-              storageStatuses:
-                description: the status of storages
-                properties:
-                  myid:
-                    description: the indicator of storage
-                    format: int32
-                    type: integer
-                  status:
-                    description: the status of storage
-                    type: string
-                type: object
             type: object
         type: object
     served: true

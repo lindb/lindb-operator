@@ -70,18 +70,20 @@ type ClusterReconciler struct {
 func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	var lindbCluster = alpha1.Cluster{}
-	err := r.Get(ctx, req.NamespacedName, &lindbCluster)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	logger.Info("Reconciling Lindb cluster", "cluster", lindbCluster.Namespace+"/"+lindbCluster.Name)
+	var cls = alpha1.Cluster{}
 
-	if apierrors.IsNotFound(err) || lindbCluster.GetDeletionTimestamp() != nil {
-		return r.reconcileDelete(ctx, &lindbCluster)
+	if err := r.Get(ctx, req.NamespacedName, &cls); err != nil {
+		logger.Error(err, "unable to fetch LindbCluster")
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	return r.reconcileNormal(ctx, &lindbCluster)
+	if cls.GetDeletionTimestamp() != nil {
+		return r.reconcileNormal(ctx, &cls)
+	}
+
+	logger.Info("Reconciling Lindb cluster", "cluster", cls.Namespace+"/"+cls.Name)
+
+	return r.reconcileNormal(ctx, &cls)
 }
 
 func (r *ClusterReconciler) reconcileNormal(ctx context.Context, cluster *alpha1.Cluster) (ctrl.Result, error) {
